@@ -117,12 +117,14 @@ func watchDownloads() error {
 	if err := watcher.Add(downloadsPath); err != nil {
 		return err
 	}
-
 	for {
 		select {
 		case event := <-watcher.Events:
 			if event.Op&fsnotify.Create == fsnotify.Create {
 				if isTempFile(event.Name) {
+					continue
+				}
+				if _, err := os.Stat(event.Name); err != nil {
 					continue
 				}
 				category, err := promptCategory()
