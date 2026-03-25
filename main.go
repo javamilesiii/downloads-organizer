@@ -2,12 +2,13 @@ package main
 
 import (
 	"fmt"
-	"github.com/fsnotify/fsnotify"
 	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/fsnotify/fsnotify"
 )
 
 var homeDir = getHomeDir()
@@ -22,11 +23,11 @@ var directories = map[string]string{
 
 func main() {
 	if err := setup(); err != nil {
-		fmt.Println("Error while setup: ", err)
+		log.Println("Error while setup: ", err)
 		return
 	}
 	if err := watchDownloads(); err != nil {
-		fmt.Println("Error while watching downloads: ", err)
+		log.Println("Error while watching downloads: ", err)
 	}
 }
 
@@ -38,19 +39,18 @@ func getHomeDir() string {
 	return homeDir
 }
 
-func organizeFile(fileName, category string) error {
+func organizeFile(sourcePath, category string) error {
 	targetDir, exists := directories[category]
 	if !exists {
 		return fmt.Errorf("category not found: %s", category)
 	}
-	sourcePath := filepath.Join(homeDir, "Downloads", fileName)
 	_, err := os.Stat(sourcePath)
 	if os.IsNotExist(err) {
-		return fmt.Errorf("file not found: %s", fileName)
+		return fmt.Errorf("file not found: %s", sourcePath)
 	} else if err != nil {
 		return err
 	}
-	destinationPath := filepath.Join(homeDir, targetDir, fileName)
+	destinationPath := filepath.Join(homeDir, targetDir, filepath.Base(sourcePath))
 	if err := os.Rename(sourcePath, destinationPath); err != nil {
 		return fmt.Errorf("failed to move file: %w", err)
 	}
@@ -61,7 +61,7 @@ func setup() error {
 	for _, value := range directories {
 		path := filepath.Join(homeDir, value)
 		if _, err := os.Stat(path); err == nil {
-			fmt.Println("Directory already exists: ", path)
+			log.Println("Directory already exists: ", path)
 			continue
 		} else if !os.IsNotExist(err) {
 			return err
@@ -69,7 +69,15 @@ func setup() error {
 		if err := os.MkdirAll(path, 0755); err != nil {
 			return err
 		}
-		fmt.Println("Directory successfully created: ", path)
+		log.Println("Directory successfully created: ", path)
+	}
+	downloadDir := filepath.Join(homeDir, "Downloads")
+	if _, err := os.Stat(downloadDir); os.IsNotExist(err) {
+		if err := os.MkdirAll(downloadDir, 0755); err != nil {
+			return err
+		}
+	} else if err != nil {
+		return err
 	}
 	return nil
 }
@@ -89,6 +97,12 @@ func promptCategory() (string, error) {
 	}
 
 	selected := strings.TrimSpace(string(output))
+	if selected == "" {
+		return "", fmt.Errorf("no category selected")
+	}
+	if _, ok := directories[selected]; !ok {
+		return "", fmt.Errorf("invalid category: %s", selected)
+	}
 	return selected, nil
 }
 
@@ -97,13 +111,7 @@ func watchDownloads() error {
 	if err != nil {
 		return err
 	}
-	defer func(watcher *fsnotify.Watcher) {
-		err := watcher.Close()
-		if err != nil {
-			fmt.Println("Error while closing watcher: ", err)
-			return
-		}
-	}(watcher)
+	defer watcher.Close()
 
 	downloadsPath := filepath.Join(homeDir, "Downloads")
 	if err := watcher.Add(downloadsPath); err != nil {
@@ -119,13 +127,13 @@ func watchDownloads() error {
 				}
 				category, err := promptCategory()
 				if err != nil {
-					fmt.Println("Error while getting category: ", err)
-					return err
+					log.Println("Error while getting category: ", err)
+					continue
 				}
 
 				if err := organizeFile(event.Name, category); err != nil {
-					fmt.Println("Error while moving file: ", err)
-					return err
+					log.Println("Error while moving file: ", err)
+					continue
 				}
 			}
 		case err := <-watcher.Errors:
@@ -143,7 +151,7 @@ func isTempFile(filename string) bool {
 		".download",
 		".temp",
 	}
-	if strings.HasPrefix(filename, ".") {
+	if strings.HasPrefix(filepath.Base(filename), ".") {
 		return true
 	}
 	if strings.Contains(filename, "Unconfirmed") {
