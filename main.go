@@ -1,21 +1,21 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"strings"
 
 	"github.com/fsnotify/fsnotify"
 )
 
 var homeDir = getHomeDir()
-var directories = getCategories()
-var downloadsPath = getDownloadsPath()
+var directories map[string]Category
+var downloadsPath string
+
+var config Config
 
 func main() {
+	loadConfig()
 	if err := setup(); err != nil {
 		log.Println("Error while setup: ", err)
 		return
@@ -33,28 +33,11 @@ func getHomeDir() string {
 	return homeDir
 }
 
-func organizeFile(sourcePath, category string) error {
-	targetDir, exists := directories[category]
-	if !exists {
-		return fmt.Errorf("category not found: %s", category)
-	}
-	_, err := os.Stat(sourcePath)
-	if os.IsNotExist(err) {
-		return fmt.Errorf("file not found: %s", sourcePath)
-	} else if err != nil {
-		return err
-	}
-	destinationPath := filepath.Join(homeDir, targetDir.path, filepath.Base(sourcePath))
-	if err := os.Rename(sourcePath, destinationPath); err != nil {
-		return fmt.Errorf("failed to move file: %w", err)
-	}
-	return nil
-}
-
 func setup() error {
-	loadConfig()
+	directories = config.getCategories()
+	downloadsPath = config.getDownloadsPath()
 	for _, value := range directories {
-		path := filepath.Join(homeDir, value.path)
+		path := filepath.Join(homeDir, value.Path)
 		if _, err := os.Stat(path); err == nil {
 			log.Println("Directory already exists: ", path)
 			continue
@@ -74,30 +57,6 @@ func setup() error {
 		return err
 	}
 	return nil
-}
-
-func promptCategory() (string, error) {
-	cmd := exec.Command("rofi", "-dmenu", "-p", "Category:")
-	keys := make([]string, 0, len(directories))
-	for key := range directories {
-		keys = append(keys, key)
-	}
-	options := strings.Join(keys, "\n")
-	cmd.Stdin = strings.NewReader(options)
-
-	output, err := cmd.Output()
-	if err != nil {
-		return "", err
-	}
-
-	selected := strings.TrimSpace(string(output))
-	if selected == "" {
-		return "", fmt.Errorf("no category selected")
-	}
-	if _, ok := directories[selected]; !ok {
-		return "", fmt.Errorf("invalid category: %s", selected)
-	}
-	return selected, nil
 }
 
 func watchDownloads() error {
@@ -135,20 +94,4 @@ func watchDownloads() error {
 			log.Println("Error:", err)
 		}
 	}
-}
-
-func isTempFile(filename string) bool {
-	tempExtensions := getIgnoreFiles()
-	if strings.HasPrefix(filepath.Base(filename), ".") {
-		return true
-	}
-	if strings.Contains(filename, "Unconfirmed") {
-		return true
-	}
-	for _, ext := range tempExtensions {
-		if strings.HasSuffix(filename, ext) {
-			return true
-		}
-	}
-	return false
 }

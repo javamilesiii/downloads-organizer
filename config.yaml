@@ -3,22 +3,22 @@ download_dir: /tmp/
 categories:
   School:
     path: Documents/School/
-    promptSubfolder: true
+    prompt_subfolder: true
   Scouts:
     path: Documents/Scouts/
-    promptSubfolder: true
+    prompt_subfolder: true
   Coding:
     path: Development/Downlaods/
-    promptSubfolder: false
+    prompt_subfolder: false
   Music:
     path: Music/
-    promptSubfolder: false
+    prompt_subfolder: false
   Pictures:
     path: Pictures/
-    promptSubfolder: false
+    prompt_subfolder: false
   Videos:
     path: Videos/
-    promptSubfolder: false
+    prompt_subfolder: false
 
 ignore_files:
   - .DS_Store
