@@ -1,0 +1,30 @@
+download_dir: /tmp/
+
+categories:
+  School:
+    path: Documents/School/
+    promptSubfolder: true
+  Scouts:
+    path: Documents/Scouts/
+    promptSubfolder: true
+  Coding:
+    path: Development/Downlaods/
+    promptSubfolder: false
+  Music:
+    path: Music/
+    promptSubfolder: false
+  Pictures:
+    path: Pictures/
+    promptSubfolder: false
+  Videos:
+    path: Videos/
+    promptSubfolder: false
+
+ignore_files:
+  - .DS_Store
+  - .crdownload
+  - .part
+  - .tmp
+  - .download
+  - .temp
+  - .opdownload

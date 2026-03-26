@@ -12,14 +12,8 @@ import (
 )
 
 var homeDir = getHomeDir()
-var directories = map[string]string{
-	"School":   "Documents/School",
-	"Coding":   "Development/Downloads",
-	"Scouts":   "Documents/Scouts",
-	"Music":    "Music",
-	"Videos":   "Videos",
-	"Pictures": "Pictures",
-}
+var directories = getCategories()
+var downloadsPath = getDownloadsPath()
 
 func main() {
 	if err := setup(); err != nil {
@@ -50,7 +44,7 @@ func organizeFile(sourcePath, category string) error {
 	} else if err != nil {
 		return err
 	}
-	destinationPath := filepath.Join(homeDir, targetDir, filepath.Base(sourcePath))
+	destinationPath := filepath.Join(homeDir, targetDir.path, filepath.Base(sourcePath))
 	if err := os.Rename(sourcePath, destinationPath); err != nil {
 		return fmt.Errorf("failed to move file: %w", err)
 	}
@@ -58,8 +52,9 @@ func organizeFile(sourcePath, category string) error {
 }
 
 func setup() error {
+	loadConfig()
 	for _, value := range directories {
-		path := filepath.Join(homeDir, value)
+		path := filepath.Join(homeDir, value.path)
 		if _, err := os.Stat(path); err == nil {
 			log.Println("Directory already exists: ", path)
 			continue
@@ -71,9 +66,8 @@ func setup() error {
 		}
 		log.Println("Directory successfully created: ", path)
 	}
-	downloadDir := filepath.Join(homeDir, "Downloads")
-	if _, err := os.Stat(downloadDir); os.IsNotExist(err) {
-		if err := os.MkdirAll(downloadDir, 0755); err != nil {
+	if _, err := os.Stat(downloadsPath); os.IsNotExist(err) {
+		if err := os.MkdirAll(downloadsPath, 0755); err != nil {
 			return err
 		}
 	} else if err != nil {
@@ -83,7 +77,7 @@ func setup() error {
 }
 
 func promptCategory() (string, error) {
-	cmd := exec.Command("rofi", "-dmenu", "-p", "Category:", "-theme-str", "window {width: 30%;}")
+	cmd := exec.Command("rofi", "-dmenu", "-p", "Category:")
 	keys := make([]string, 0, len(directories))
 	for key := range directories {
 		keys = append(keys, key)
@@ -113,7 +107,6 @@ func watchDownloads() error {
 	}
 	defer watcher.Close()
 
-	downloadsPath := filepath.Join(homeDir, "Downloads")
 	if err := watcher.Add(downloadsPath); err != nil {
 		return err
 	}
@@ -145,14 +138,7 @@ func watchDownloads() error {
 }
 
 func isTempFile(filename string) bool {
-	tempExtensions := []string{
-		".crdownload",
-		".part",
-		".tmp",
-		".opdownload",
-		".download",
-		".temp",
-	}
+	tempExtensions := getIgnoreFiles()
 	if strings.HasPrefix(filepath.Base(filename), ".") {
 		return true
 	}
