@@ -79,13 +79,13 @@ func watchDownloads() error {
 				if _, err := os.Stat(event.Name); err != nil {
 					continue
 				}
-				category, err := promptCategory()
+				category, subcategory, err := promptCategory()
 				if err != nil {
 					log.Println("Error while getting category: ", err)
 					continue
 				}
 
-				if err := organizeFile(event.Name, category); err != nil {
+				if err := organizeFile(event.Name, category, subcategory); err != nil {
 					log.Println("Error while moving file: ", err)
 					continue
 				}
