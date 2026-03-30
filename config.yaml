@@ -1,4 +1,4 @@
-download_dir: /tmp/
+download_dir: Downloads/
 
 categories:
   School:
@@ -8,7 +8,7 @@ categories:
     path: Documents/Scouts/
     prompt_subfolder: true
   Coding:
-    path: Development/Downlaods/
+    path: Development/Downloads/
     prompt_subfolder: false
   Music:
     path: Music/
@@ -28,3 +28,4 @@ ignore_files:
   - .download
   - .temp
   - .opdownload
+  - Unconfirmed

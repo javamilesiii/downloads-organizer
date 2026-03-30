@@ -1,6 +1,8 @@
 package main
 
 import (
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -18,28 +20,32 @@ type Category struct {
 	PromptSubfolder bool   `yaml:"prompt_subfolder"`
 }
 
-func loadConfig() {
-	data, err := os.ReadFile(filepath.Join(homeDir, ".config/downloads-organizer/config.yaml"))
+func loadConfig(homeDir string) (*Config, error) {
+	configDir := os.Getenv("XDG_CONFIG_HOME")
+	if configDir == "" {
+		configDir = filepath.Join(homeDir, ".config")
+	}
+	configPath := filepath.Join(configDir, "downloads-organizer", "config.yaml")
+	data, err := os.ReadFile(configPath)
 	if err != nil {
-		panic(err)
+		return nil, fmt.Errorf("reading config from %s: %w", configPath, err)
 	}
 
-	var conf Config
-	err = yaml.Unmarshal(data, &conf)
+	conf := &Config{}
+	err = yaml.Unmarshal(data, conf)
 	if err != nil {
-		panic(err)
+		return nil, fmt.Errorf("parsing config: %w", err)
 	}
-	config = conf
-}
-
-func (c Config) getCategories() map[string]Category {
-	return c.Categories
-}
-
-func (c Config) getDownloadsPath() string {
-	return c.DownloadsPath
-}
-
-func (c Config) getIgnoreFiles() []string {
-	return c.IgnoreFiles
+	if conf.DownloadsPath == "" {
+		conf.DownloadsPath = "Downloads"
+	}
+	if len(conf.Categories) == 0 {
+		return nil, errors.New("no categories configured")
+	}
+	for name, cat := range conf.Categories {
+		if cat.Path == "" {
+			return nil, fmt.Errorf("category %q has no path configured", name)
+		}
+	}
+	return conf, nil
 }

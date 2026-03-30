@@ -1,41 +1,57 @@
 package main
 
 import (
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 )
 
-func organizeFile(sourcePath, category string, subcategory string) error {
-	targetDir, exists := directories[category]
+type Organization struct {
+	sourcePath  string
+	category    string
+	subcategory string
+	homeDir     string
+	directories map[string]Category
+}
+
+func organizeFile(org Organization) error {
+	targetDir, exists := org.directories[org.category]
 	if !exists {
-		return fmt.Errorf("category not found: %s", category)
+		return fmt.Errorf("category not found: %s", org.category)
 	}
-	if !dirExists(filepath.Join(targetDir.Path, subcategory)) && subcategory != "" {
-		return fmt.Errorf("subcategory not found")
-	}
-	targetDir.Path = filepath.Join(targetDir.Path, subcategory)
-	if !dirExists(sourcePath) {
-		return fmt.Errorf("file not found: %s", sourcePath)
-	}
-	destinationPath := filepath.Join(homeDir, targetDir.Path, filepath.Base(sourcePath))
-	if err := os.Rename(sourcePath, destinationPath); err != nil {
+	targetPath := filepath.Join(targetDir.Path, org.subcategory)
+	destinationPath := resolveDestination(filepath.Join(org.homeDir, targetPath), filepath.Base(org.sourcePath))
+
+	if err := os.Rename(org.sourcePath, destinationPath); err != nil {
+		var linkErr *os.LinkError
+		if errors.As(err, &linkErr) && errors.Is(linkErr.Err, syscall.EXDEV) {
+			if err := copyFile(org.sourcePath, destinationPath); err != nil {
+				return fmt.Errorf("failed to copy file to %s: %w", destinationPath, err)
+			}
+			if err := os.Remove(org.sourcePath); err != nil {
+				return fmt.Errorf("failed to remove file %s: %w", org.sourcePath, err)
+			}
+			return nil
+		}
 		return fmt.Errorf("failed to move file: %w", err)
 	}
 	return nil
 }
 
-func isTempFile(filename string) bool {
-	tempExtensions := config.getIgnoreFiles()
+func isTempFile(filename string, ignoreExts []string) bool {
 	if strings.HasPrefix(filepath.Base(filename), ".") {
 		return true
 	}
-	if strings.Contains(filename, "Unconfirmed") {
-		return true
-	}
-	for _, ext := range tempExtensions {
-		if strings.HasSuffix(filename, ext) {
+	for _, ext := range ignoreExts {
+		if !strings.HasPrefix(ext, ".") {
+			if strings.HasPrefix(filepath.Base(filename), ext) {
+				return true
+			}
+		} else if strings.HasSuffix(filename, ext) {
 			return true
 		}
 	}
@@ -45,7 +61,7 @@ func isTempFile(filename string) bool {
 func getSubDirectories(path string) ([]string, error) {
 	entries, err := os.ReadDir(path)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("reading directory %s: %w", path, err)
 	}
 	var subDirs []string
 	for _, entry := range entries {
@@ -56,12 +72,47 @@ func getSubDirectories(path string) ([]string, error) {
 	return subDirs, nil
 }
 
-func dirExists(path string) bool {
+func pathExists(path string) bool {
 	_, err := os.Stat(path)
-	if os.IsNotExist(err) {
-		return false
-	} else if err != nil {
-		return false
+	return err == nil
+}
+
+func copyFile(sourcePath string, destinationPath string) error {
+	sourceFile, err := os.Open(sourcePath)
+	if err != nil {
+		return fmt.Errorf("error occurred while opening file %s: %w", sourcePath, err)
 	}
-	return true
+	defer sourceFile.Close()
+
+	destinationFile, err := os.Create(destinationPath)
+	if err != nil {
+		return fmt.Errorf("error occurred while creating file %s: %w", destinationPath, err)
+	}
+	defer destinationFile.Close()
+
+	if _, err := io.Copy(destinationFile, sourceFile); err != nil {
+		os.Remove(destinationPath)
+		return fmt.Errorf("error occurred while copying file: %w", err)
+	}
+	if err := destinationFile.Close(); err != nil {
+		os.Remove(destinationPath)
+		return fmt.Errorf("error occurred while closing destinationFile %s: %w", destinationPath, err)
+	}
+	return nil
+}
+
+func resolveDestination(dir, filename string) string {
+	ext := filepath.Ext(filename)
+	name := strings.TrimSuffix(filename, ext)
+
+	path := filepath.Join(dir, filename)
+	if !pathExists(path) {
+		return path
+	}
+	for i := 1; ; i++ {
+		newPath := filepath.Join(dir, fmt.Sprintf("%s_%d%s", name, i, ext))
+		if !pathExists(newPath) {
+			return newPath
+		}
+	}
 }
