@@ -21,7 +21,7 @@ go build -o downloads-organizer
 
 ### 2. Install the binary
 
-```bash
+```bashconfig
 sudo install -Dm755 downloads-organizer /usr/local/bin/downloads-organizer
 ```
 
@@ -59,15 +59,9 @@ ignore_files:
 - `prompt_subfolder` — if `true`, a second rofi prompt asks for a subdirectory
 - `ignore_files` — entries starting with `.` are matched as suffixes; others as prefixes
 
-### 4. Set up the systemd user service
+### 4. Set up the systemd service
 
-Create the service file:
-
-```bash
-mkdir -p ~/.config/systemd/user
-```
-
-Paste the following into `~/.config/systemd/user/downloads-organizer.service`:
+Paste the following into `/etc/systemd/system/downloads-organizer.service`:
 
 ```ini
 [Unit]
@@ -79,38 +73,39 @@ Type=simple
 ExecStart=/usr/local/bin/downloads-organizer
 Restart=on-failure
 RestartSec=5s
+Environment=HOME=/home/your-username
 Environment=DISPLAY=:0
 Environment=WAYLAND_DISPLAY=wayland-0
-Environment=XDG_RUNTIME_DIR=/run/user/%U
+Environment=XDG_RUNTIME_DIR=/run/user/1000
 
 [Install]
 WantedBy=graphical-session.target
 ```
 
-> The `DISPLAY`, `WAYLAND_DISPLAY`, and `XDG_RUNTIME_DIR` environment variables are required so rofi can open on your screen.
+> Replace `your-username` with your actual username and `1000` with your actual user ID (check with `id -u`). All four environment variables are required: `HOME` for config lookup, and the rest so rofi can open on your screen.
 
 ### 5. Enable and start the service
 
 ```bash
-systemctl --user daemon-reload
-systemctl --user enable --now downloads-organizer.service
+sudo systemctl daemon-reload
+sudo systemctl enable --now downloads-organizer.service
 ```
 
 ### 6. Verify it is running
 
 ```bash
-systemctl --user status downloads-organizer.service
+systemctl status downloads-organizer.service
 ```
 
 ## Stopping / restarting
 
 ```bash
-systemctl --user stop downloads-organizer.service
-systemctl --user restart downloads-organizer.service
+sudo systemctl stop downloads-organizer.service
+sudo systemctl restart downloads-organizer.service
 ```
 
 ## Logs
 
 ```bash
-journalctl --user -u downloads-organizer.service -f
+journalctl -u downloads-organizer.service -f
 ```
