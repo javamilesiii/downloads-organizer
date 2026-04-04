@@ -21,8 +21,8 @@ go build -o downloads-organizer
 
 ### 2. Install the binary
 
-```bashconfig
-sudo install -Dm755 downloads-organizer /usr/local/bin/downloads-organizer
+```bash
+install -Dm755 downloads-organizer ~/.local/bin/downloads-organizer
 ```
 
 ### 3. Configure
@@ -59,9 +59,9 @@ ignore_files:
 - `prompt_subfolder` — if `true`, a second rofi prompt asks for a subdirectory
 - `ignore_files` — entries starting with `.` are matched as suffixes; others as prefixes
 
-### 4. Set up the systemd service
+### 4. Set up the systemd user service
 
-Paste the following into `/etc/systemd/system/downloads-organizer.service`:
+Create `~/.config/systemd/user/downloads-organizer.service`:
 
 ```ini
 [Unit]
@@ -70,42 +70,38 @@ After=graphical-session.target
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/downloads-organizer
+ExecStart=/home/username/.local/bin/downloads-organizer
 Restart=on-failure
 RestartSec=5s
-Environment=HOME=/home/your-username
-Environment=DISPLAY=:0
-Environment=WAYLAND_DISPLAY=wayland-0
-Environment=XDG_RUNTIME_DIR=/run/user/1000
 
 [Install]
-WantedBy=graphical-session.target
+WantedBy=default.target
 ```
 
-> Replace `your-username` with your actual username and `1000` with your actual user ID (check with `id -u`). All four environment variables are required: `HOME` for config lookup, and the rest so rofi can open on your screen.
+User services inherit your session environment automatically, so no need to set `HOME`, `DISPLAY`, or `WAYLAND_DISPLAY` manually.
 
 ### 5. Enable and start the service
 
 ```bash
-sudo systemctl daemon-reload
-sudo systemctl enable --now downloads-organizer.service
+systemctl --user daemon-reload
+systemctl --user enable --now downloads-organizer.service
 ```
 
 ### 6. Verify it is running
 
 ```bash
-systemctl status downloads-organizer.service
+systemctl --user status downloads-organizer.service
 ```
 
 ## Stopping / restarting
 
 ```bash
-sudo systemctl stop downloads-organizer.service
-sudo systemctl restart downloads-organizer.service
+systemctl --user stop downloads-organizer.service
+systemctl --user restart downloads-organizer.service
 ```
 
 ## Logs
 
 ```bash
-journalctl -u downloads-organizer.service -f
+journalctl --user -u downloads-organizer.service -f
 ```
