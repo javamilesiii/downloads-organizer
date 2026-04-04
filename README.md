@@ -14,7 +14,7 @@ When a file lands in your downloads folder, a rofi prompt appears asking you to 
 ### 1. Build the binary
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/javamilesiii/downloads-organizer
 cd downloads-organizer
 go build -o downloads-organizer
 ```
